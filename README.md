@@ -1,5 +1,4 @@
-Scalavator
-==========
+# Scalavator
 
 Scalavator is the unofficial Scala game. It is a cross-platform, open-source,
 arcade game where you must jump from platform to platform to reach higher and
@@ -60,8 +59,7 @@ into any direction you wish. If you do build a game with SGL, please reach out
 to [the SGL project](https://github.com/regb/scala-game-library), or get in
 touch directly with [me](http://regblanc.com/contact).
 
-Credits
--------
+## Credits
 
     * Author, designer, artist, and programmer: [Régis Blanc](http://regblanc.com)
     * [Ce-gars-là](TODO), original concept from [Manohar Jonnalagedda](https://twitter.com/manojah_shanti) and [Nicolas Stucki](https://twitter.com/stucki_nicolas).
