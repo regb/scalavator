@@ -63,4 +63,5 @@ touch directly with [me](http://regblanc.com/contact/).
 ## Credits
 
 * Author, designer, programmer: [Régis Blanc](http://regblanc.com)
-* [Ce-gars-là](TODO), original concept from [Manohar Jonnalagedda](https://twitter.com/manojah_shanti) and [Nicolas Stucki](https://twitter.com/stucki_nicolas).
+* [Ce-gars-là](https://twitter.com/manojah_shanti/status/781884092111548416),
+  original concept from [Manohar Jonnalagedda](https://twitter.com/manojah_shanti) and [Nicolas Stucki](https://twitter.com/stucki_nicolas).
