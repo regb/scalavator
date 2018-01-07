@@ -6,12 +6,15 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 )
 
-lazy val sglCoreJVM = ProjectRef(file("../sgl"), "coreJVM")
-lazy val sglCoreJS = ProjectRef(file("../sgl"), "coreJS")
-lazy val sglCoreAndroid = ProjectRef(file("../sgl"), "coreAndroid")
-lazy val sglHtml5 = ProjectRef(file("../sgl"), "html5")
-lazy val sglDesktop = ProjectRef(file("../sgl"), "desktopAWT")
-lazy val sglAndroid = ProjectRef(file("../sgl"), "android")
+val sglHead = "a75c5414289951186e2d153a842308a37f41e7bd"
+val sglGitHubLink = s"git://github.com/regb/scala-game-library.git#$sglHead"
+
+lazy val sglCoreJVM = ProjectRef(uri(sglGitHubLink), "coreJVM")
+lazy val sglCoreJS = ProjectRef(uri(sglGitHubLink), "coreJS")
+lazy val sglCoreAndroid = ProjectRef(uri(sglGitHubLink), "coreAndroid")
+lazy val sglHtml5 = ProjectRef(uri(sglGitHubLink), "html5")
+lazy val sglDesktop = ProjectRef(uri(sglGitHubLink), "desktopAWT")
+lazy val sglAndroid = ProjectRef(uri(sglGitHubLink), "android")
 
 lazy val core = (crossProject.crossType(CrossType.Pure) in file("./core"))
   .settings(commonSettings: _*)
