@@ -35,8 +35,8 @@ You can also build and run Scalavator yourself, just run the following command:
     
     sbt desktop/run
 
-And it should start the Desktop JVM version of Scalavator. You can also build
-an Android apk (after installing the Android dependencies) with `sbt
+It should start the Desktop JVM version of Scalavator. You can also build
+an Android APK (after installing the Android dependencies) with `sbt
 android/android:packageDebug)` and a javascript build with (after installing
 scala.js dependencies) `sbt html5/fastOptJS`.
 
@@ -58,9 +58,9 @@ If you are interested in trying out SGL, this repository is a good starting
 point with a working project. You can then modify the core game logic to go
 into any direction you wish. If you do build a game with SGL, please reach out
 to [the SGL project](https://github.com/regb/scala-game-library), or get in
-touch directly with [me](http://regblanc.com/contact).
+touch directly with [me](http://regblanc.com/contact/).
 
 ## Credits
 
-    * Author, designer, artist, and programmer: [Régis Blanc](http://regblanc.com)
-    * [Ce-gars-là](TODO), original concept from [Manohar Jonnalagedda](https://twitter.com/manojah_shanti) and [Nicolas Stucki](https://twitter.com/stucki_nicolas).
+* Author, designer, programmer: [Régis Blanc](http://regblanc.com)
+* [Ce-gars-là](TODO), original concept from [Manohar Jonnalagedda](https://twitter.com/manojah_shanti) and [Nicolas Stucki](https://twitter.com/stucki_nicolas).
