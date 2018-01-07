@@ -26,7 +26,19 @@ trait MainScreenComponent extends BackgroundComponent {
 
     override def name = "Scalavator Screen"
 
-    private val Gravity = Vec(0, dp2px(550))
+    private val Gravity = Vec(0, dp2px(430))
+
+    private def jumpChargeToImpulsion(jumpCharge: Long): Double = {
+      //let's try 3 layers, for each 200 ms
+      val level: Int = {
+        val tmp = (jumpCharge / 200d).toInt //for each 200ms, we have 1 level
+        tmp min 2
+      }
+      //level is from 0 to MaxLevel
+
+      (1 + 0.3*level)*dp2px(320)
+    }
+
 
     class Platform(var x: Double, var y: Double, val width: Int, var speed: Double) {
       private val region = BitmapRegion(platformBitmap, 0 max (platformBitmap.width-width)/2, 0, platformBitmap.width, platformBitmap.height)
@@ -48,9 +60,9 @@ trait MainScreenComponent extends BackgroundComponent {
     }
     object Platform {
       def random(y: Double): Platform = {
-        val width = dp2px(50 + scala.util.Random.nextInt(40))
+        val width = dp2px(55 + scala.util.Random.nextInt(40))
         val x = scala.util.Random.nextInt(WindowWidth - width)
-        val speed = dp2px(80 + scala.util.Random.nextInt(50))
+        val speed = dp2px(80 + scala.util.Random.nextInt(60))
         new Platform(x, y, width, speed)
       }
     }
@@ -90,18 +102,27 @@ trait MainScreenComponent extends BackgroundComponent {
       }
     }
 
+
+    private var randomNextPop: Int = 0
+    // Distance to jump until we pop the next bug
+    private var distanceToNextBug: Int = WindowHeight
+    private def generateRandomNextPop: Int = dp2px(70 + scala.util.Random.nextInt(30))
+    private def generateRandomDistanceToBug: Int = dp2px(WindowHeight/2 + WindowHeight)
+
     private val startingPlatform = new Platform(0, WindowHeight-platformBitmap.height, WindowWidth, 0)
-    private var platforms: List[Platform] = List(
-      new Platform(WindowWidth/2, WindowHeight-dp2px(500), dp2px(70), -dp2px(130)),
-      new Platform(WindowWidth/2, WindowHeight-dp2px(400), dp2px(70), dp2px(80)),
-      new Platform(WindowWidth/2, WindowHeight-dp2px(300), dp2px(70), -dp2px(100)),
-      new Platform(WindowWidth/2, WindowHeight-dp2px(200), dp2px(70), dp2px(110)),
-      new Platform(WindowWidth/2, WindowHeight-dp2px(100), dp2px(70), dp2px(90)),
-      startingPlatform
-    )
+    private var platforms: List[Platform] = List(startingPlatform)
+
+    {
+      var h = WindowHeight - dp2px(100)
+      while(h > 0) {
+        platforms ::= Platform.random(h)
+        h -= dp2px(100)
+      }
+      randomNextPop = -h
+    }
 
     private var bugs: List[Bug] = List()
-    //private var bugs: List[Bug] = List(new Bug(0, WindowHeight - 200, 100))
+    // private var bugs: List[Bug] = List(new Bug(0, WindowHeight - 200, 100))
 
     //character real height varies from sprite to sprite, and the value
     //refers to the sprite height (but when idle, it uses ony about 3/4 of
@@ -197,15 +218,6 @@ trait MainScreenComponent extends BackgroundComponent {
     var currentScore: Double = 0
     private var highestScore: Long = 0
 
-    private var randomNextPop: Int = generateRandomNextPop
-
-    // Distance to jump until we pop the next bug
-    private var distanceToNextBug: Int = WindowHeight
-
-    private def generateRandomNextPop: Int = dp2px(60 + scala.util.Random.nextInt(30))
-
-    private def generateRandomDistanceToBug: Int = dp2px(WindowHeight/2 + WindowHeight)
-
     private val hud = new Hud(this)
 
     private var totalTime: Long = 0
@@ -218,17 +230,6 @@ trait MainScreenComponent extends BackgroundComponent {
     private var scrolledDown = 0d
 
     private var gameOver = false
-
-    def jumpChargeToImpulsion(jumpCharge: Long): Double = {
-      //let's try 3 layers, for each 200 ms
-      val level: Int = {
-        val tmp = (jumpCharge / 200d).toInt //for each 200ms, we have 1 level
-        tmp min 2
-      }
-      //level is from 0 to MaxLevel
-
-      (1 + 0.2*level)*dp2px(400)
-    }
 
     def handleInput(ev: Input.InputEvent): Unit = {
       ev match {
@@ -247,7 +248,7 @@ trait MainScreenComponent extends BackgroundComponent {
             logger.info("Jump input from player detected. total charge: " + totalCharge)
             if(standingPlatform.nonEmpty) {
               standingPlatform = None
-              characterVelocity = Vec(0, -jumpChargeToImpulsion(totalCharge))
+              characterVelocity = Vec(0, - jumpChargeToImpulsion(totalCharge))
               characterAnimation.currentAnimation = CharacterStartJumpAnimation
             }
           }
@@ -416,7 +417,8 @@ trait MainScreenComponent extends BackgroundComponent {
       // jumping the same distance.
       currentScore += px2dp(distance)
 
-      if(platforms.head.y >= randomNextPop) {
+      randomNextPop -= distance
+      if(randomNextPop <= 0) {
         randomNextPop = generateRandomNextPop
         platforms ::= Platform.random(0)
       }
