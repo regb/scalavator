@@ -25,8 +25,9 @@ with only a single file to define the correct dependencies. For example, here
 is the only required [Android
 code](/android/src/main/scala/MainActivity.scala), just a couple lines of code.
 
-Scalavator is available to [try online](http://regblanc.com/games/scalavator)
-from your browser, or to download for your Android device on [Google
+Scalavator is available to [try
+online](http://regblanc.com/games/scalavator/play.html) from your browser, or
+to download for your Android device on [Google
 Play](https://play.google.com/store/apps/details=?id=com.regblanc.scalavator).
 I invite you to try both and spot the differences.
 
@@ -37,7 +38,7 @@ You can also build and run Scalavator yourself, just run the following command:
 And it should start the Desktop JVM version of Scalavator. You can also build
 an Android apk (after installing the Android dependencies) with `sbt
 android/android:packageDebug)` and a javascript build with (after installing
-scala.js dependencies) `sbt html5/fastOptJs`.
+scala.js dependencies) `sbt html5/fastOptJS`.
 
 Not that anyone would ever need them, but just in case, all the art assets that
 I provided for the game are released in the public domain. Some assets on this
