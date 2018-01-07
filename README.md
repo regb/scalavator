@@ -37,8 +37,8 @@ You can also build and run Scalavator yourself, just run the following command:
 
 It should start the Desktop JVM version of Scalavator. You can also build
 an Android APK (after installing the Android dependencies) with `sbt
-android/android:packageDebug)` and a javascript build with (after installing
-scala.js dependencies) `sbt html5/fastOptJS`.
+android/android:packageDebug` and a javascript build (after installing
+scala.js dependencies) with `sbt html5/fastOptJS`.
 
 Not that anyone would ever need them, but just in case, all the art assets that
 I provided for the game are released in the public domain. Some assets on this
