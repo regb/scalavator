@@ -28,7 +28,7 @@ code](/android/src/main/scala/MainActivity.scala), just a couple lines of code.
 Scalavator is available to [try
 online](http://regblanc.com/games/scalavator/play.html) from your browser, or
 to download for your Android device on [Google
-Play](https://play.google.com/store/apps/details=?id=com.regblanc.scalavator).
+Play](https://play.google.com/store/apps/details?id=com.regblanc.scalavator).
 I invite you to try both and spot the differences.
 
 You can also build and run Scalavator yourself, just run the following command:
