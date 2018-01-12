@@ -6,7 +6,7 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 )
 
-val sglHead = "a75c5414289951186e2d153a842308a37f41e7bd"
+val sglHead = "80ac6f77b708e1dfd49e609156b5f7b9452047ea"
 val sglGitHubLink = s"git://github.com/regb/scala-game-library.git#$sglHead"
 
 lazy val sglCoreJVM = ProjectRef(uri(sglGitHubLink), "coreJVM")

@@ -12,9 +12,8 @@ import scala.scalajs.js.annotation.JSExport
 
 @JSExport
 object Main extends core.AbstractApp with Html5App 
-  with Html5VerboseConsoleLoggingProvider
-  //with NoLoggingProvider
-  with SceneComponent with InputHelpersComponent with MemorySaveComponent {
+  with Html5VerboseConsoleLoggingProvider with SceneComponent
+  with InputHelpersComponent with LocalStorageSaveComponent {
 
   //We should not force the fps on Html5 and just let
   //requestAnimationFrame do its best

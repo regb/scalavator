@@ -9,7 +9,7 @@ import util._
 trait MainScreenComponent extends BackgroundComponent {
   this: GraphicsProvider with InputProvider with GameStateComponent with WindowProvider 
   with SystemProvider with AudioProvider with SceneComponent with LoggingProvider
-  with SaveComponent =>
+  with SaveComponent with ViewportComponent =>
 
   import Graphics._
 
@@ -447,8 +447,8 @@ trait MainScreenComponent extends BackgroundComponent {
 
 
   class Hud(mainScreen: MainScreen) {
-
-    val sceneGraph = new SceneGraph(WindowWidth, WindowHeight)
+    val viewport = new Viewport(WindowWidth, WindowHeight)
+    val sceneGraph = new SceneGraph(WindowWidth, WindowHeight, viewport)
 
     private val group = new SceneGroup(0, 0, WindowWidth, dp2px(40))
     private val groupBackground = new GroupBackground

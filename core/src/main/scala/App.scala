@@ -5,7 +5,7 @@ import sgl._
 import scene._
 import util._
 
-trait AbstractApp extends MainScreenComponent with LoadingScreenComponent {
+trait AbstractApp extends MainScreenComponent with LoadingScreenComponent with ViewportComponent {
   this: GraphicsProvider with InputProvider with WindowProvider with AudioProvider
   with GameStateComponent with SystemProvider
   with SceneComponent with LoggingProvider with SaveComponent =>
