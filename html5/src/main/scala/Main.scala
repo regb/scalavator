@@ -1,26 +1,21 @@
 package com.regblanc.scalavator
 package html5
 
-import sgl._
-import sgl.scene._
+import core.ScalavatorGame
+
 import sgl.html5._
-import sgl.html5.themes._
-import sgl.util._
+import sgl.html5.themes.FixedWindowTheme
 import sgl.html5.util._
 
-import scala.scalajs.js.annotation.JSExport
+object Main extends ScalavatorGame with Html5App 
+  with Html5VerboseConsoleLoggingProvider {
 
-@JSExport
-object Main extends core.AbstractApp with Html5App 
-  with Html5VerboseConsoleLoggingProvider with SceneComponent
-  with InputHelpersComponent with LocalStorageSaveComponent {
+  override val GameCanvasID = "scalavator_canvas_2"
 
-  //We should not force the fps on Html5 and just let
-  //requestAnimationFrame do its best
-  override val TargetFps: Option[Int] = None
+  override val theme = new sgl.html5.themes.NoTheme
+  //override val theme = new FixedWindowTheme {
+  //  override val frameSize = (400, 650)
+  //}
 
-  override val theme = new DefaultTheme {
-    override val maxFrame = (400, 650)
-  }
-
+  override val ResourcesRoot = PartsResourcePath(Vector("..", "..", "..", "resources", "scalavator", "static"))
 }
