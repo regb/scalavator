@@ -2,484 +2,351 @@ package com.regblanc.scalavator
 package core
 
 import sgl._
-import geometry._
-import scene._
-import util._
+
+import scala.util.Random
 
 trait MainScreenComponent extends BackgroundComponent {
-  this: GraphicsProvider with InputProvider with GameStateComponent with WindowProvider 
-  with SystemProvider with AudioProvider with SceneComponent with LoggingProvider
-  with SaveComponent with ViewportComponent =>
+  this: CanvasProvider with GameStateComponent with WindowProvider
+  with SaveComponent with LoadingScreenComponent =>
 
   import Graphics._
 
-  private implicit val Tag = Logger.Tag("main")
+  private val HighScoreKey = "highest_score"
 
-  class MainScreen(
-    characterIdleBitmap: Bitmap,
-    characterPreJumpBitmap: Bitmap,
-    characterJumpBitmap: Bitmap,
-    bugBitmap: Bitmap,
-    platformBitmap: Bitmap,
-    cloudsBitmap: Bitmap
-  ) extends GameScreen {
+  private val StepMs = 5L
 
-    override def name = "Scalavator Screen"
+  /** Steps the physics every 5 ms for stable jumps, and catches up on at most 250 ms after a hitch. */
+  class MainScreen(sprites: Sprites) extends FixedTimestepGameScreen(StepMs, maxStepsPerFrame = 50) {
+    import sprites._
 
-    private val Gravity = Vec(0, dp2px(430))
+    override def name: String = "Scalavator"
 
-    private def jumpChargeToImpulsion(jumpCharge: Long): Double = {
-      //let's try 3 layers, for each 200 ms
-      val level: Int = {
-        val tmp = (jumpCharge / 200d).toInt //for each 200ms, we have 1 level
-        tmp min 2
-      }
-      //level is from 0 to MaxLevel
+    private val W = screenWidth
+    private val H = screenHeight
 
-      (1 + 0.3*level)*dp2px(320)
-    }
+    // Physics, in pixels and seconds.
+    private val Gravity = dp(430)
+    private val JumpImpulse = dp(320)
+    private val ChargeStepMs = 200L
+    private val MaxCharge = 2
+    private val RestartDelayMs = 600L
 
+    // The hero is positioned by the center of its feet; the hitbox ignores the arms.
+    private val HeroHeight = heroIdle.height.toFloat
+    private val HitboxWidth = heroIdle.width * 0.45f
+    private val HitboxHeight = HeroHeight * 0.8f
 
-    class Platform(var x: Double, var y: Double, val width: Int, var speed: Double) {
-      private val region = BitmapRegion(platformBitmap, 0 max (platformBitmap.width-width)/2, 0, platformBitmap.width, platformBitmap.height)
-      def update(dt: Long): Unit = {
-        x = x + speed*(dt/1000d)
-        if(x+width > WindowWidth) {
-          x = WindowWidth-width
-          speed = -speed
-        } else if(x < 0) {
-          x = 0
-          speed = -speed
-        }
-      }
-      def render(canvas: Canvas): Unit = {
-        canvas.drawRepeatedBitmap(region, x.toInt, y.toInt, width, platformBitmap.height)
-      }
+    // The hero stands on the grass, slightly below the top of the platform bitmap.
+    private val PlatformHeight = platformMiddle.height.toFloat
+    private val PlatformSurface = PlatformHeight * 0.3f
+    private val CapsWidth = (platformLeft.width + platformRight.width).toFloat
+    private val middleRegion = BitmapRegion(platformMiddle, 0, 0, platformMiddle.width, platformMiddle.height)
 
-      override def toString = s"Platform($x, $y) with speed $speed"
-    }
-    object Platform {
-      def random(y: Double): Platform = {
-        val width = dp2px(55 + scala.util.Random.nextInt(40))
-        val x = scala.util.Random.nextInt(WindowWidth - width)
-        val speed = dp2px(80 + scala.util.Random.nextInt(60))
-        new Platform(x, y, width, speed)
-      }
-    }
+    private val BugWidth = bugFrames.head.width.toFloat
+    private val BugHeight = bugFrames.head.height.toFloat
 
-    class Bug(var x: Double, var y: Double, var speed: Double) {
-      private var age: Long = 0
-      def update(dt: Long): Unit = {
-        age += dt
-        x = x + speed*(dt/1000d)
-        if(x + Bug.Width > WindowWidth) {
-          x = WindowWidth - Bug.Width
-          speed = -speed
-        } else if(x < 0) {
-          x = 0
+    private def randomDirection: Float = if(Random.nextBoolean()) 1f else -1f
+
+    /** Flies left and right, bouncing off the screen edges. */
+    private trait Mover {
+      var x: Float
+      var y: Float
+      var speed: Float
+      def width: Float
+
+      def update(dt: Float): Unit = {
+        x += speed * dt
+        if(x < 0 || x + width > W) {
+          x = x.max(0f).min(W - width)
           speed = -speed
         }
       }
+    }
+
+    private final class Platform(var x: Float, var y: Float, val width: Float, var speed: Float) extends Mover {
       def render(canvas: Canvas): Unit = {
-        val frame = if(speed > 0) bugRightAnimation.currentFrame(age) else bugLeftAnimation.currentFrame(age)
-        canvas.drawBitmap(frame, x.toInt, y.toInt)
-      }
-
-      // Character position (left-bottom of the hittable area)
-      def hitCharacter(characterX: Double, characterY: Double): Boolean = {
-        (characterX + CharacterHitboxStart >= x + dp2px(6) && characterX < x + Bug.Width - dp2px(6)) &&
-        (characterY >= y + dp2px(15) && characterY - CharacterIdleHeight < y + Bug.Height - dp2px(10))
-      }
-
-    }
-    object Bug {
-      val Width = dp2px(64)
-      val Height = dp2px(64)
-      def random(y: Double): Bug = {
-        val x = scala.util.Random.nextInt(WindowWidth - Width)
-        val speed = dp2px(90 + scala.util.Random.nextInt(20))
-        new Bug(x, y, speed)
+        val top = y - PlatformSurface
+        if(width > CapsWidth)
+          canvas.drawRepeatedBitmap(middleRegion, x + platformLeft.width, top, width - CapsWidth, PlatformHeight)
+        canvas.drawBitmap(platformLeft, x, top)
+        canvas.drawBitmap(platformRight, x + width - platformRight.width, top)
       }
     }
 
+    private final class Bug(var x: Float, var y: Float, var speed: Float) extends Mover {
+      val width: Float = BugWidth
+      private var ageMs = 0L
+      private def top: Float = y + dp(4) * scala.math.sin(ageMs / 180.0).toFloat
 
-    private var randomNextPop: Int = 0
-    // Distance to jump until we pop the next bug
-    private var distanceToNextBug: Int = WindowHeight
-    private def generateRandomNextPop: Int = dp2px(70 + scala.util.Random.nextInt(30))
-    private def generateRandomDistanceToBug: Int = dp2px(WindowHeight/2 + WindowHeight)
-
-    private val startingPlatform = new Platform(0, WindowHeight-platformBitmap.height, WindowWidth, 0)
-    private var platforms: List[Platform] = List(startingPlatform)
-
-    {
-      var h = WindowHeight - dp2px(100)
-      while(h > 0) {
-        platforms ::= Platform.random(h)
-        h -= dp2px(100)
+      override def update(dt: Float): Unit = {
+        ageMs += (dt * 1000).toLong
+        super.update(dt)
       }
-      randomNextPop = -h
-    }
 
-    private var bugs: List[Bug] = List()
-    // private var bugs: List[Bug] = List(new Bug(0, WindowHeight - 200, 100))
-
-    //character real height varies from sprite to sprite, and the value
-    //refers to the sprite height (but when idle, it uses ony about 3/4 of
-    //that height). The width only refers to the inner part that is collidable
-    //and not the full sprite with the arms.
-    // The pixel at which the character becomes collidable
-    private val CharacterHitboxStart = dp2px(18)
-    // The width of the hitbox from the starting point
-    private val CharacterHitboxWidth = dp2px(24)
-    private val CharacterHeight = characterIdleBitmap.height //dp2px(89)
-    private val CharacterIdleHeight = dp2px(65)
-
-    //character position is the bottom left corner of the hittable area. The actual visible sprite
-    //expands slightly more to the left and the right of the CharacterWidth.
-    private var characterPosition = Point(WindowWidth/2-characterIdleBitmap.width/2+CharacterHitboxStart, WindowHeight - platformBitmap.height)
-    private var characterVelocity = Vec(0, 0)
-
-    private val characterIdleFrames = Array(
-      BitmapRegion(characterIdleBitmap, 0        ,  0, dp2px(60), CharacterHeight)
-    )
-
-    private val characterPreJumpFrames = Array(
-      BitmapRegion(characterPreJumpBitmap, 0         , 0, dp2px(60), CharacterHeight),
-      BitmapRegion(characterPreJumpBitmap, dp2px(60) , 0, dp2px(60), CharacterHeight),
-      BitmapRegion(characterPreJumpBitmap, dp2px(120), 0, dp2px(60), CharacterHeight)
-    )
-    private val characterJumpFrames = Array(
-      BitmapRegion(characterJumpBitmap, 0         , 0, dp2px(60), CharacterHeight),
-      BitmapRegion(characterJumpBitmap, dp2px(60) , 0, dp2px(60), CharacterHeight),
-      BitmapRegion(characterJumpBitmap, dp2px(120), 0, dp2px(60), CharacterHeight),
-      BitmapRegion(characterJumpBitmap, dp2px(180), 0, dp2px(60), CharacterHeight),
-      BitmapRegion(characterJumpBitmap, dp2px(240), 0, dp2px(60), CharacterHeight),
-      BitmapRegion(characterJumpBitmap, dp2px(300), 0, dp2px(60), CharacterHeight)
-    )
-
-    private val characterLandingFrames = Array(
-      characterJumpFrames(1),
-      characterJumpFrames(0),
-      characterJumpFrames(1),
-      characterJumpFrames(2),
-      characterIdleFrames(0)
-    )
-
-    private val BugLeftFrames = Array(
-      BitmapRegion(bugBitmap, 0         , 0, Bug.Width, Bug.Height),
-      BitmapRegion(bugBitmap, dp2px(64) , 0, Bug.Width, Bug.Height),
-      BitmapRegion(bugBitmap, dp2px(128), 0, Bug.Width, Bug.Height)
-    )
-    private val BugRightFrames = Array(
-      BitmapRegion(bugBitmap, 0         , dp2px(64), Bug.Width, Bug.Height),
-      BitmapRegion(bugBitmap, dp2px(64) , dp2px(64), Bug.Width, Bug.Height),
-      BitmapRegion(bugBitmap, dp2px(128), dp2px(64), Bug.Width, Bug.Height)
-    )
-
-    private val CharacterIdleAnimation = new Animation(200, characterIdleFrames, Animation.Loop)
-    private val CharacterPreJumpAnimation = new Animation(100, characterPreJumpFrames, Animation.Normal)
-    private val CharacterStartJumpAnimation = new Animation(100, characterJumpFrames, Animation.Normal)
-    private val CharacterTopJumpAnimation = new Animation(200, characterJumpFrames.reverse.take(5), Animation.Normal)
-    private val CharacterLandingAnimation = new Animation(150, characterLandingFrames, Animation.Normal)
-    private val bugLeftAnimation = new Animation(200, BugLeftFrames, Animation.LoopReversed)
-    private val bugRightAnimation = new Animation(200, BugRightFrames, Animation.LoopReversed)
-
-
-    //this looks like a standard wrapper technique for a character/sprite
-    //that can have several state and thus several animation. It seems
-    //more convenient to have an internal shared elapsed time, that
-    //is reset each time the animation change, and properly updated 
-    //by a simple call to update, no matter what the current animation is.
-    //The alternative being to store global variables in the game logic,
-    //and tracking which current animation is going on to get the frame
-    //with the proper elapsed time.
-    //So maybe, this could be part of the library
-    class CharacterAnimation {
-      private var _currentAnimation: Animation = CharacterIdleAnimation
-      private var elapsed: Long = 0
-
-      def update(dt: Long) = elapsed += dt
-
-      def currentAnimation_=(animation: Animation): Unit = {
-        _currentAnimation = animation
-        elapsed = 0
+      /** Checks overlap with a rectangle, ignoring the transparent margins of the sprite. */
+      def hits(left: Float, top: Float, right: Float, bottom: Float): Boolean = {
+        val inset = BugWidth * 0.2f
+        right > x + inset && left < x + BugWidth - inset &&
+        bottom > this.top + inset && top < this.top + BugHeight - inset
       }
-      def currentAnimation = _currentAnimation
 
-      def currentFrame = _currentAnimation.currentFrame(elapsed)
-    }
-
-    private var characterAnimation = new CharacterAnimation
-
-    private var standingPlatform: Option[Platform] = Some(startingPlatform)
-
-    // The score is how high we go, it's a long, just in case
-    var currentScore: Double = 0
-    private var highestScore: Long = 0
-
-    private val hud = new Hud(this)
-
-    private var totalTime: Long = 0
-
-    private var chargeJumpStart: Long = 0
-
-    private var hitByBug = false
-    private var freeFalling = false
-    private var scrollDownVelocity = 0d
-    private var scrolledDown = 0d
-
-    private var gameOver = false
-
-    def handleInput(ev: Input.InputEvent): Unit = {
-      ev match {
-        case Input.TouchDownEvent(_, _, _) | Input.MouseDownEvent(_, _, Input.MouseButtons.Left) =>
-          if(gameOver)
-            restart()
-
-          if(standingPlatform.nonEmpty) {
-            chargeJumpStart = totalTime
-            characterAnimation.currentAnimation = CharacterPreJumpAnimation
-          }
-        case Input.TouchUpEvent(_, _, _) | Input.MouseUpEvent(_, _, Input.MouseButtons.Left) =>
-          if(chargeJumpStart != 0 && !hitByBug && !freeFalling) {
-            val totalCharge = totalTime - chargeJumpStart
-            chargeJumpStart = 0
-            logger.info("Jump input from player detected. total charge: " + totalCharge)
-            if(standingPlatform.nonEmpty) {
-              standingPlatform = None
-              characterVelocity = Vec(0, - jumpChargeToImpulsion(totalCharge))
-              characterAnimation.currentAnimation = CharacterStartJumpAnimation
-            }
-          }
-        case _ => ()
+      def render(canvas: Canvas): Unit = canvas.withSave {
+        // The sprite faces right; mirror it when flying left.
+        if(speed >= 0) canvas.translate(x, top)
+        else { canvas.translate(x + BugWidth, top); canvas.scale(-1f, 1f) }
+        canvas.drawBitmap(bugFrames(((ageMs / 90) % bugFrames.size).toInt), 0f, 0f)
       }
     }
 
-    private val background = new Background(cloudsBitmap)
+    private enum Phase { case Ready, Playing, Falling, GameOver }
 
-    private var accumulatedDelta = 0l
-    private val FixedDelta = 5l
-    override def update(dt: Long): Unit = {
-      Input.processEvents(handleInput)
+    private var phase = Phase.Ready
+    private var time = 0L
 
-      totalTime += dt
+    // The starting platform is the floor, along the bottom of the screen.
+    private val startPlatform = new Platform(0, H - safeBottom - PlatformHeight * 0.7f, W, 0)
+    private var platforms = List(startPlatform)
+    private var topPlatformY = startPlatform.y
+    private var bugs = List.empty[Bug]
+    private var distanceToNextBug = H
 
-      accumulatedDelta += dt
+    private var heroX = W / 2
+    private var heroY = startPlatform.y
+    private var heroVy = 0f
+    private var standingOn: Option[Platform] = Some(startPlatform)
+    private var chargingSince: Option[Long] = None
+    private var landedAt: Option[Long] = None
+    private var hitAt: Option[Long] = None
+    private var scrolledDown = 0f
 
-      while(accumulatedDelta / FixedDelta != 0) {
-        accumulatedDelta -= FixedDelta
-        fixedUpdate(FixedDelta)
+    private var climbedDp = 0f
+    // Score in dp, so that high-density screens do not climb faster.
+    private def score: Long = climbedDp.toLong
+    private val previousBest = Save.getLongOrElse(HighScoreKey, 0)
+    private var gameOverAt = 0L
+
+    private val background = new Background(ground, clouds)
+
+    private def heroLeft: Float = heroX - HitboxWidth / 2
+    private def heroRight: Float = heroX + HitboxWidth / 2
+    private def charge: Option[Int] = chargingSince.map(since => ((time - since) / ChargeStepMs).toInt.min(MaxCharge))
+
+    private def fillPlatforms(): Unit = {
+      while(topPlatformY > -dp(40)) {
+        topPlatformY -= randomDp(70, 31)
+        val width = randomDp(60, 40).max(CapsWidth)
+        platforms ::= new Platform(Random.nextFloat() * (W - width), topPlatformY, width, randomDp(80, 60) * randomDirection)
       }
+    }
+    fillPlatforms()
 
-      characterAnimation.update(dt)
-
-      background.update(dt)
+    private def press(): Unit = phase match {
+      case Phase.GameOver =>
+        // Ignore the tap that killed the hero; give the player a moment to see the score.
+        if(time - gameOverAt > RestartDelayMs) gameState.newScreen(new MainScreen(sprites))
+      case Phase.Ready | Phase.Playing =>
+        if(standingOn.nonEmpty && chargingSince.isEmpty) chargingSince = Some(time)
+      case Phase.Falling => ()
     }
 
-    def fixedUpdate(dt: Long): Unit = {
-      hud.sceneGraph.update(dt)
+    private def release(): Unit = {
+      for(level <- charge) {
+        standingOn = None
+        heroVy = -(1 + 0.3f * level) * JumpImpulse
+        phase = Phase.Playing
+      }
+      chargingSince = None
+    }
 
-      val originalCharacterFeet = characterPosition.y
+    Input.setInputProcessor(new InputProcessor with PointerInputProcessor {
+      import Input.Keys.{Key, Space}
+      import Input.MouseButtons.{Left, MouseButton}
+
+      override def pointerDown(x: Int, y: Int, pointer: Int, button: MouseButton): Boolean = { if(button == Left) press(); true }
+      override def pointerUp(x: Int, y: Int, pointer: Int, button: MouseButton): Boolean = { if(button == Left) release(); true }
+      override def keyDown(key: Key): Boolean = { if(key == Space) press(); true }
+      override def keyUp(key: Key): Boolean = { if(key == Space) release(); true }
+    })
+
+    override def fixedUpdate(): Unit = {
+      time += StepMs
+      step(StepMs / 1000f)
+      background.update(StepMs)
+    }
+
+    private def fall(dt: Float): Unit = {
+      heroVy += Gravity * dt
+      heroY += heroVy * dt
+    }
+
+    private def step(dt: Float): Unit = {
       platforms.foreach(_.update(dt))
       bugs.foreach(_.update(dt))
-  
-      if(gameOver) {
-        // wait for a touch event to restart.
-      } else if(freeFalling) {
-        characterVelocity += Gravity*(dt/1000d)
-        characterPosition += characterVelocity*(dt/1000d)
-        if(characterPosition.y.toInt - WindowHeight > 0) {
-          scrollDownVelocity = 2*characterVelocity.y
-        }
-        if(characterPosition.y > WindowHeight + CharacterHeight) {
-          gameOver = true
-          highestScore = save.getLongOrElse("highest_score", 0)
-          if(currentScore.toInt > highestScore) {
-            highestScore = currentScore.toInt
-            save.putLong("highest_score", highestScore)
+
+      phase match {
+        case Phase.GameOver => ()
+
+        case Phase.Falling =>
+          fall(dt)
+          // Follow the fall for one screen, so the player sees the world rush by.
+          val followLine = H * 0.6f
+          if(heroY > followLine && scrolledDown < H) {
+            val distance = (heroY - followLine).min(H - scrolledDown)
+            scrollWorld(-distance)
+            scrolledDown += distance
           }
-        } else if(scrolledDown < WindowHeight) {
-          val scrollDownDistance = scrollDownVelocity*(dt/1000d)
-          scrollDown(scrollDownDistance)
-          scrolledDown += scrollDownDistance
-        }
-      } else {
-        standingPlatform match {
-          case None => {
-            val previousVelocity = characterVelocity
+          // Spinning makes the sprite extend past its height, so wait until it is well gone.
+          if(heroY - HeroHeight * 1.5f > H) endGame()
 
-            characterVelocity += Gravity*(dt/1000d)
-            characterPosition += characterVelocity*(dt/1000d)
-
-            //TODO: maybe we should start an animation just before reaching the top,
-            //      but we need to create State within the character to properly handle
-            //      the different phase of the jump
-            if(characterVelocity.y >= -dp2px(50)) { //trying to detect end of the jump
-            }
-
-            if(previousVelocity.y <= 0 && characterVelocity.y >= 0) {
-              //if reached peak of the jump
-              //characterAnimation.currentAnimation = CharacterEndJumpAnimation
-              characterAnimation.currentAnimation = CharacterTopJumpAnimation
-            }
-
-            if(characterPosition.y.toInt < WindowHeight/2)
-              scrollUp(WindowHeight/2 - characterPosition.y.toInt)
+        case Phase.Ready | Phase.Playing =>
+          standingOn match {
+            case Some(platform) =>
+              heroX = (heroX + platform.speed * dt).max(HitboxWidth / 2).min(W - HitboxWidth / 2)
+              heroY = platform.y
+            case None =>
+              val previousY = heroY
+              fall(dt)
+              if(heroVy > 0) {
+                standingOn = platforms.find(p =>
+                  p.y >= previousY && p.y <= heroY && heroRight >= p.x && heroLeft <= p.x + p.width)
+                for(platform <- standingOn) {
+                  heroY = platform.y
+                  heroVy = 0
+                  landedAt = Some(time)
+                }
+              }
+              if(standingOn.isEmpty && heroY > H) phase = Phase.Falling
+              val scrollLine = H * 0.45f
+              if(heroY < scrollLine) scrollWorld(scrollLine - heroY)
           }
-          case Some(platform) => {
-            characterPosition = characterPosition + Vec(1,0)*platform.speed*(dt/1000d)
-            if(characterPosition.x < 0)
-              characterPosition = characterPosition.copy(x = 0)
-            if(characterPosition.x + CharacterHitboxWidth > WindowWidth)
-              characterPosition = characterPosition.copy(x = WindowWidth-CharacterHitboxWidth)
-          }
-        }
-        val newCharacterFeet = characterPosition.y
-        if(newCharacterFeet > originalCharacterFeet) { //if falling
-          platforms.find(p => p.y+1 > originalCharacterFeet && p.y+1 <= newCharacterFeet && 
-                              p.x <= characterPosition.x + CharacterHitboxWidth && p.x + p.width >= characterPosition.x
-                        ).foreach(platform => {
-            standingPlatform = Some(platform)
-            characterAnimation.currentAnimation = CharacterLandingAnimation
-          })
 
-          if(standingPlatform == None && characterPosition.y > WindowHeight) {
-            freeFalling = true
+          if(bugs.exists(_.hits(heroLeft, heroY - HitboxHeight, heroRight, heroY))) {
+            hitAt = Some(time)
+            heroVy = -dp(160)
+            standingOn = None
+            chargingSince = None
+            phase = Phase.Falling
           }
-        }
-        if(bugs.exists(_.hitCharacter(characterPosition.x, characterPosition.y))) {
-          characterVelocity = Vec(0, dp2px(10))
-          freeFalling = true
-          hitByBug = true
-        }
       }
-
     }
 
-    def restart(): Unit = {
-      gameState.newScreen(
-        new MainScreen(
-          characterIdleBitmap, characterPreJumpBitmap, characterJumpBitmap,
-          bugBitmap, platformBitmap, cloudsBitmap
-        )
-      )
+    /** Moves everything down by `distance` pixels (up when negative): the hero climbs, the world follows. */
+    private def scrollWorld(distance: Float): Unit = {
+      platforms.foreach(_.y += distance)
+      bugs.foreach(_.y += distance)
+      heroY += distance
+      topPlatformY += distance
+      background.scroll(distance)
+
+      if(distance > 0) {
+        climbedDp += px2dp(distance)
+        fillPlatforms()
+        distanceToNextBug -= distance
+        if(distanceToNextBug <= 0) {
+          distanceToNextBug = H * 1.5f
+          bugs ::= new Bug(Random.nextFloat() * (W - BugWidth), -BugHeight, randomDp(90, 20) * randomDirection)
+        }
+        platforms = platforms.filter(_.y - PlatformSurface < H)
+        bugs = bugs.filter(_.y < H)
+      }
     }
 
-    private val gameOverPaint = defaultPaint.withColor(Color.Black).withFont(Font.Default.withSize(dp2px(20))).withAlignment(Alignments.Center)
+    private def endGame(): Unit = {
+      phase = Phase.GameOver
+      gameOverAt = time
+      if(score > previousBest) Save.putLong(HighScoreKey, score)
+    }
+
     override def render(canvas: Canvas): Unit = {
-
       background.render(canvas)
-
       platforms.foreach(_.render(canvas))
+      renderHero(canvas)
       bugs.foreach(_.render(canvas))
+      phase match {
+        case Phase.Ready => renderHud(canvas); renderTitle(canvas)
+        case Phase.Playing | Phase.Falling => renderHud(canvas)
+        case Phase.GameOver => renderGameOver(canvas)
+      }
+    }
 
-      if(hitByBug) {
-        canvas.withSave {
-          canvas.translate((characterPosition.x.toInt - CharacterHitboxStart) + characterIdleBitmap.width/2, characterPosition.y.toInt - CharacterHeight/2)
-          //-dp2px(9), characterPosition.y.toInt-CharacterHeight)
-          canvas.rotate(math.Pi)
-          canvas.drawBitmap(characterAnimation.currentFrame, -characterIdleBitmap.width/2, -CharacterHeight/2)
+    private val ChargeColors = Vector(Gold, Rgb(255, 140, 40), ScalaRed)
+
+    private def renderHero(canvas: Canvas): Unit = {
+      if(standingOn.nonEmpty)
+        canvas.drawOval(heroX, heroY - dp(1), HitboxWidth * 1.4f, dp(7), fill(Ink.color(0.18f)))
+
+      // Pick the pose, then squash and stretch it around the feet.
+      val (bitmap, scaleX, scaleY) =
+        if(hitAt.nonEmpty) (heroDizzy, 1f, 1f)
+        else charge match {
+          case Some(level) => (heroCrouch, 1f + 0.04f * level, 1f - 0.06f * level)
+          case None if standingOn.isEmpty =>
+            val stretch = (scala.math.abs(heroVy) / JumpImpulse * 0.08f).min(0.1f)
+            (heroJump, 1f - stretch * 0.6f, 1f + stretch)
+          case None if landedAt.exists(time - _ < 140) => (heroCrouch, 1.05f, 0.94f)
+          case None =>
+            val breathe = 0.015f * scala.math.sin(time / 320.0).toFloat
+            (heroIdle, 1f - breathe, 1f + breathe)
         }
+
+      canvas.withSave {
+        canvas.translate(heroX, heroY)
+        for(since <- hitAt) {
+          canvas.translate(0f, -HeroHeight / 2)
+          canvas.rotate((time - since) * 0.008f)
+          canvas.translate(0f, HeroHeight / 2)
+        }
+        canvas.scale(scaleX, scaleY)
+        canvas.drawBitmap(bitmap, -bitmap.width / 2f, -bitmap.height.toFloat)
+      }
+
+      for(level <- charge; i <- 0 to MaxCharge) {
+        val cx = heroX + (i - 1) * dp(14)
+        val cy = heroY - HeroHeight - dp(12)
+        canvas.drawCircle(cx, cy, dp(5.5f), fill(Color.White))
+        canvas.drawCircle(cx, cy, dp(4), fill(if(i <= level) ChargeColors(i).color() else Ink.color(0.15f)))
+      }
+    }
+
+    private def pulse(periodMs: Double): Float = 0.6f + 0.4f * scala.math.sin(time * 2 * scala.math.Pi / periodMs).toFloat
+
+    private def renderHud(canvas: Canvas): Unit = {
+      val top = safeTop + dp(12)
+      val margin = dp(12)
+      drawPill(canvas, margin, top, dp(96), score.toString, 20, Color.White)
+      drawPill(canvas, W - margin - dp(104), top, dp(104), s"BEST ${previousBest.max(score)}", 14, Gold.color())
+    }
+
+    private def renderTitle(canvas: Canvas): Unit = {
+      val y = H * 0.24f
+      drawCard(canvas, y, dp(320), dp(116))
+      canvas.drawString("Scalavator", W / 2, y + dp(56), text(42, ScalaRed.color()))
+      canvas.drawString("Hold to charge, release to jump", W / 2, y + dp(92), text(15, Ink.color(0.45f + 0.4f * pulse(1600))))
+    }
+
+    private def renderGameOver(canvas: Canvas): Unit = {
+      val fadeIn = ((time - gameOverAt) / 300f).min(1f)
+      canvas.drawRect(0f, 0f, W, H, fill(Ink.color(0.45f * fadeIn)))
+
+      val height = dp(230)
+      val y = (H - height) / 2 - dp(20) * (1 - fadeIn)
+      val cx = W / 2
+      drawCard(canvas, y, dp(300), height, fadeIn)
+
+      canvas.drawString("Game Over", cx, y + dp(50), text(30, ScalaRed.color(fadeIn)))
+      canvas.drawString("SCORE", cx, y + dp(84), text(13, Ink.color(0.5f * fadeIn)))
+      canvas.drawString(score.toString, cx, y + dp(124), text(38, Ink.color(fadeIn)))
+
+      if(score > previousBest) {
+        val badgeWidth = dp(130)
+        drawRoundRect(canvas, cx - badgeWidth / 2, y + dp(140), badgeWidth, dp(30), dp(15), fill(Gold.color(fadeIn)))
+        canvas.drawString("NEW BEST!", cx, y + dp(161), text(15, Ink.color(fadeIn)))
       } else {
-        canvas.drawBitmap(characterAnimation.currentFrame,
-          characterPosition.x.toInt- CharacterHitboxStart, characterPosition.y.toInt-CharacterHeight)
+        canvas.drawString(s"BEST $previousBest", cx, y + dp(161), text(16, Ink.color(0.6f * fadeIn)))
       }
 
-      hud.sceneGraph.render(canvas)
-
-      if(gameOver) {
-        canvas.drawString("Score: " + currentScore.toInt, WindowWidth/2, WindowHeight/2 - dp2px(14), gameOverPaint)
-        canvas.drawString("Highest Score: " + highestScore, WindowWidth/2, WindowHeight/2 + dp2px(14), gameOverPaint)
-
-        if((totalTime/700d).toInt % 2 == 0)
-          canvas.drawString("Press to start a new game", WindowWidth/2, WindowHeight*3/4, gameOverPaint)
-      }
-
-    }
-
-    /*
-     * When jumping passed half the screen, we scroll up to maintain the character
-     * in the middle. We never scroll down, as essentially everything outside of the
-     * screen disappeared.
-     *
-     * We don't use a camera, we just shift everything down a bit, and drop the platform
-     * when it goes off screen.
-     */
-    private def scrollUp(distance: Int): Unit = {
-      platforms.foreach(plat => plat.y += distance)
-      bugs.foreach(bug => bug.y += distance)
-      characterPosition = characterPosition + Vec(0, distance.toDouble)
-
-      // Since we base the score on the distance (in actual pixels), we
-      // need to convert that distance back to dp, otherwise people
-      // with high density screens would get a much higher score while
-      // jumping the same distance.
-      currentScore += px2dp(distance)
-
-      randomNextPop -= distance
-      if(randomNextPop <= 0) {
-        randomNextPop = generateRandomNextPop
-        platforms ::= Platform.random(0)
-      }
-
-      distanceToNextBug -= distance
-      if(distanceToNextBug <= 0) {
-        distanceToNextBug = generateRandomDistanceToBug
-        bugs ::= Bug.random(-Bug.Height)
-      }
-
-      platforms = platforms.filterNot(p => p.y > WindowHeight)
-      bugs = bugs.filterNot(b => b.y > WindowHeight)
-
-      //paralax scrolling with background
-      background.scrollUp(distance/3d)
-    }
-
-    // scroll down is the inverse of scroll up, except that it will not generate
-    // any new platforms or enemies. We use it for our game over animation.
-    private def scrollDown(distance: Double): Unit = {
-      platforms.foreach(plat => plat.y -= distance)
-      bugs.foreach(bug => bug.y -= distance)
-      characterPosition = characterPosition - Vec(0, distance)
+      if(time - gameOverAt > RestartDelayMs)
+        canvas.drawString("Tap to play again", cx, y + dp(205), text(16, ScalaRed.color(pulse(1200))))
     }
   }
-
-
-  class Hud(mainScreen: MainScreen) {
-    val viewport = new Viewport(WindowWidth, WindowHeight)
-    val sceneGraph = new SceneGraph(WindowWidth, WindowHeight, viewport)
-
-    private val group = new SceneGroup(0, 0, WindowWidth, dp2px(40))
-    private val groupBackground = new GroupBackground
-    private val titleLabel = new TitleLabel
-    val scoreLabel = new ScoreLabel
-    group.addNode(groupBackground)
-    group.addNode(titleLabel)
-    group.addNode(scoreLabel)
-    sceneGraph.addNode(group)
-
-    private val textPaint = defaultPaint.withColor(Color.White).withFont(Font.Default.withSize(dp2px(18)))
-
-    class GroupBackground extends SceneNode(0, 0, 0, 0) {
-      override def update(dt: Long): Unit = {}
-      override def render(canvas: Canvas): Unit = {
-        canvas.drawColor(Color.Red)
-      }
-    }
-    class TitleLabel extends SceneNode(dp2px(15), dp2px(25), 0, 0) {
-      override def update(dt: Long): Unit = {}
-      override def render(canvas: Canvas): Unit = {
-        canvas.drawString("Scalavator", x.toInt, y.toInt, textPaint)
-      }
-    }
-    class ScoreLabel extends SceneNode(WindowWidth-dp2px(15), dp2px(25), 0, 0) {
-      override def update(dt: Long): Unit = {}
-      override def render(canvas: Canvas): Unit = {
-        canvas.drawString(mainScreen.currentScore.toInt.toString, x.toInt, y.toInt, textPaint.withAlignment(Alignments.Right))
-      }
-    }
-    
-  }
-
 }

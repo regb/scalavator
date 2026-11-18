@@ -1,0 +1,28 @@
+module(
+    name = "scalavator",
+    version = "1.0",
+)
+
+bazel_dep(
+    name = "sgl.bzl",
+    version = "0.0.0",
+    repo_name = "sgl",
+)
+
+# SGL is not on the Bazel Central Registry yet, so pin a commit. To build
+# against a local SGL checkout instead, add this line to .bazelrc.user:
+#   common --override_module=sgl.bzl=/path/to/scala-game-library
+git_override(
+    module_name = "sgl.bzl",
+    commit = "0744ec76e4d3b8bfee7e6d9a1431cb8fb10a6b67",
+    remote = "https://github.com/regb/scala-game-library.git",
+)
+
+# rules_scala only reads the Scala version from the root module.
+bazel_dep(name = "rules_scala", version = "7.2.6")
+
+scala_config = use_extension(
+    "@rules_scala//scala/extensions:config.bzl",
+    "scala_config",
+)
+scala_config.settings(scala_version = "3.3.8")

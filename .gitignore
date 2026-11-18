@@ -1,3 +1,8 @@
 target
 .history
 *.swp
+
+/bazel-*
+/.bazel-android/
+/.bazelrc.user
+/scalavator.save

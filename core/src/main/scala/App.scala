@@ -2,12 +2,11 @@ package com.regblanc.scalavator
 package core
 
 import sgl._
-import scene._
-import util._
 
-trait AbstractApp extends MainScreenComponent with LoadingScreenComponent with ViewportComponent {
-  this: GraphicsProvider with InputProvider with WindowProvider with AudioProvider
-  with GameStateComponent with SystemProvider
-  with SceneComponent with LoggingProvider with SaveComponent =>
-
+/** The platform-independent game. Each platform entry point mixes in its backend. */
+trait AbstractApp extends Screen2DGameApp
+  with LoadingScreenComponent
+  with MainScreenComponent
+  with AssetsProvider {
+  this: SaveComponent =>
 }

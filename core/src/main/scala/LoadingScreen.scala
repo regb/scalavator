@@ -2,65 +2,78 @@ package com.regblanc.scalavator
 package core
 
 import sgl._
-import scene._
-import util._
+import sgl.assets.DrawableAsset
+import sgl.util._
 
-trait LoadingScreenComponent {
-  this: GraphicsProvider with InputProvider with GameStateComponent
-  with WindowProvider with SystemProvider with LoggingProvider with MainScreenComponent =>
+trait LoadingScreenComponent extends BackgroundComponent {
+  this: CanvasProvider with GameStateComponent with WindowProvider with LoggingProvider
+  with MainScreenComponent with AssetsProvider =>
 
   import Graphics._
 
-  private implicit val Tag = Logger.Tag("loading-screen")
+  /** Every bitmap used by the game, fully loaded. */
+  final case class Sprites(
+    heroIdle: Bitmap,
+    heroCrouch: Bitmap,
+    heroJump: Bitmap,
+    heroDizzy: Bitmap,
+    platformLeft: Bitmap,
+    platformMiddle: Bitmap,
+    platformRight: Bitmap,
+    bugFrames: Vector[Bitmap],
+    clouds: Vector[Bitmap],
+    ground: Bitmap
+  )
 
-  var characterIdle: Loader[Bitmap] = null
-  var characterPrejump: Loader[Bitmap] = null
-  var characterJump: Loader[Bitmap] = null
-  var bug: Loader[Bitmap] = null
-  var platform: Loader[Bitmap] = null
-  var clouds: Loader[Bitmap] = null
+  override def startingScreen: GameScreen = {
+    val d = Assets.drawable
+    def load(asset: DrawableAsset): Loader[Bitmap] = Graphics.loadImage(asset)
 
-  class ScalavatorLoadingScreen[A](loaders: Seq[Loader[A]]) extends LoadingScreen[A](loaders) {
+    val heroIdle = load(d.heroIdle)
+    val heroCrouch = load(d.heroCrouch)
+    val heroJump = load(d.heroJump)
+    val heroDizzy = load(d.heroDizzy)
+    val platformLeft = load(d.platformLeft)
+    val platformMiddle = load(d.platformMiddle)
+    val platformRight = load(d.platformRight)
+    val bugFrames = Vector(load(d.bug1), load(d.bug2))
+    val clouds = Vector(load(d.cloud1), load(d.cloud2), load(d.cloud3), load(d.cloud4))
+    val ground = load(d.ground)
+
+    val loaders = Vector(heroIdle, heroCrouch, heroJump, heroDizzy,
+      platformLeft, platformMiddle, platformRight, ground) ++ bugFrames ++ clouds
+
+    // Only called by the loading screen once every loader succeeded.
+    def loaded(loader: Loader[Bitmap]): Bitmap = loader.value.get.get
+
+    new ScalavatorLoadingScreen(loaders, () => Sprites(
+      loaded(heroIdle), loaded(heroCrouch), loaded(heroJump), loaded(heroDizzy),
+      loaded(platformLeft), loaded(platformMiddle), loaded(platformRight),
+      bugFrames.map(loaded), clouds.map(loaded), loaded(ground)
+    ))
+  }
+
+  private class ScalavatorLoadingScreen(loaders: Seq[Loader[Bitmap]], sprites: () => Sprites)
+      extends LoadingScreen[Bitmap](loaders) {
+
+    override protected val minDuration: Long = 600
+
+    override def nextScreen: GameScreen = new MainScreen(sprites())
 
     override def render(canvas: Canvas): Unit = {
-      logger.debug("Loading...")
+      drawSky(canvas, 0f)
+      val cx = screenWidth / 2
+      val cy = screenHeight * 0.42f
+      drawShadowedString(canvas, "Scalavator", cx, cy, text(40, ScalaRed.color()))
+
+      val barWidth = dp(180)
+      val barHeight = dp(12)
+      val barX = cx - barWidth / 2
+      val barY = cy + dp(36)
+      drawRoundRect(canvas, barX, barY, barWidth, barHeight, barHeight / 2, fill(Ink.color(0.25f)))
+      val progress = percentageProgress.toFloat
+      if(progress > 0)
+        drawRoundRect(canvas, barX, barY, (barWidth * progress).max(barHeight), barHeight, barHeight / 2, fill(Color.White))
     }
-
-    //not the best way to access a promise, but at least
-    //we try to hide the complexity within the loading
-    //screen, meaning that the MainScreen just works with
-    //fully loaded bitmap
-    override def nextScreen: GameScreen = new MainScreen(
-      characterIdle.value.get.get,
-      characterPrejump.value.get.get,
-      characterJump.value.get.get,
-      bug.value.get.get,
-      platform.value.get.get,
-      clouds.value.get.get
-    )
   }
-
-  //we need to start loader only now, because it is risky to start
-  //everything when the whole cake is initializing, as the framework
-  //might not be quite ready yet
-  override def startingScreen: GameScreen = {
-    val pathPrefix = ResourcesPrefix / "drawable"
-    characterIdle = Graphics.loadImage(pathPrefix / "character_idle.png")
-    characterPrejump = Graphics.loadImage(pathPrefix / "character_prejump.png")
-    characterJump = Graphics.loadImage(pathPrefix / "character_jump.png")
-    bug = Graphics.loadImage(pathPrefix / "bug.png")
-    platform = Graphics.loadImage(pathPrefix / "platform.png")
-    clouds = Graphics.loadImage(pathPrefix / "clouds.png")
-    val allResources = Array(
-      characterIdle,
-      characterPrejump,
-      characterJump,
-      bug,
-      platform,
-      clouds
-    )
-    new ScalavatorLoadingScreen(allResources)
-  }
-
-
 }

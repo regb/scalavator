@@ -1,0 +1,4 @@
+build --strategy=Scalac=worker
+build --worker_sandboxing
+
+try-import %workspace%/.bazelrc.user
