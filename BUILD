@@ -64,6 +64,33 @@ sgl_html5_app(
     deps = [":core"],
 )
 
+# The HTML5 game as a static website, in the layout the SGL dev server uses:
+# the page and index.js at the root, the assets under static/.
+genrule(
+    name = "html5-site",
+    srcs = [
+        "html5/index.html",
+        "html5/favicon.png",
+        "marketing/banner.jpg",
+        ":html5_indexjs",
+        ":drawables",
+    ],
+    outs = ["html5-site.tar"],
+    cmd = """
+site=$$(mktemp -d)
+cp $(location html5/index.html) $(location html5/favicon.png) $(location marketing/banner.jpg) $$site/
+cp $(location :html5_indexjs) $$site/index.js
+for f in $(locations :drawables); do
+  path=$$site/static/$${f#*/assets/}
+  mkdir -p $$(dirname $$path)
+  cp $$f $$path
+done
+chmod -R u+w,a+r $$site
+tar -C $$site --sort=name --mtime=@0 --owner=0 --group=0 -cf $@ .
+rm -rf $$site
+""",
+)
+
 sgl_android_app(
     name = "android",
     android_resources_dir = "android/src/main/res",

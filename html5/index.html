@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scalavator</title>
+  <meta name="description" content="Charge, jump, and climb as high as you can. An open-source game written in Scala with SGL.">
+  <meta property="og:title" content="Scalavator">
+  <meta property="og:description" content="Charge, jump, and climb as high as you can. Play in your browser.">
+  <meta property="og:image" content="https://regb.github.io/scalavator/banner.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.png">
+  <style>
+    /* SGL's fixed window theme centers the canvas in the body and sets the
+       body color inline, so the page color needs !important. */
+    html, body { height: 100%; }
+    body {
+      background: linear-gradient(#3f7fe0, #9fd8ff) fixed !important;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    #game {
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(20, 30, 70, 0.35);
+      touch-action: none;
+    }
+    footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 12px;
+      text-align: center;
+      font-size: 15px;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    footer a { color: #fff; font-weight: 600; }
+    /* On small screens the game takes the whole space. */
+    @media (max-width: 440px), (max-height: 740px) {
+      #game { border-radius: 0; box-shadow: none; }
+      footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <footer>Hold to charge, release to jump. <a href="https://github.com/regb/scalavator">Source on GitHub</a></footer>
+
+  <script type="module">
+    import { Scalavator } from "./index.js";
+    Scalavator.run(document.getElementById("game"));
+  </script>
+</body>
+</html>

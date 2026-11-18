@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="marketing/banner.jpg" alt="Scalavator: charge, jump, climb" width="100%">
+  <a href="https://regb.github.io/scalavator/"><img src="marketing/banner.jpg" alt="Scalavator: charge, jump, climb" width="100%"></a>
 </p>
 
 <p align="center">
@@ -8,8 +8,11 @@
 </p>
 
 <p align="center">
-  <a href="http://regblanc.com/games/scalavator/play.html">Play in your browser</a> ·
-  <a href="https://play.google.com/store/apps/details?id=com.regblanc.scalavator">Get it on Google Play</a> ·
+  <a href="https://regb.github.io/scalavator/"><img src="https://img.shields.io/badge/%E2%96%B6%20Play%20now-in%20your%20browser-DE3430?style=for-the-badge" alt="Play now in your browser"></a>
+</p>
+
+<p align="center">
+  <a href="https://regb.github.io/scalavator/">regb.github.io/scalavator</a> ·
   <a href="https://github.com/regb/scala-game-library">Built with SGL</a>
 </p>
 
@@ -56,6 +59,10 @@ of Scala, shared by every platform.
 Android needs a connected device or emulator, and `ANDROID_HOME` pointing to
 the Android SDK. Use `bazel build //...` to compile every target.
 
+`bazel build //:html5-site` packages the web game as a static website, and
+[a workflow](/.github/workflows/pages.yml) publishes it to GitHub Pages on
+every push to `master`.
+
 ## Project layout
 
 - [core](/core/src/main/scala): the game, shared by every platform. It uses
@@ -65,6 +72,7 @@ the Android SDK. Use `bazel build //...` to compile every target.
 - [BUILD](/BUILD): Bazel targets. SGL's rules generate the platform entry
   points and the Android Gradle project.
 - [desktop](/desktop): the desktop window title.
+- [html5](/html5): the web page around the game.
 - [marketing](/marketing): store graphics and screenshots.
 
 ## Building against SGL
