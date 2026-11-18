@@ -1,64 +1,106 @@
-# Scalavator
+<p align="center">
+  <img src="marketing/banner.jpg" alt="Scalavator: charge, jump, climb" width="100%">
+</p>
 
-Scalavator is the unofficial Scala game. It is a cross-platform, open-source,
-arcade game where you must jump from platform to platform to reach higher and
-higher (scores).
+<p align="center">
+  <b>The unofficial Scala game.</b><br>
+  A cross-platform arcade game where you jump from platform to platform to reach higher and higher (scores).
+</p>
+
+<p align="center">
+  <a href="http://regblanc.com/games/scalavator/play.html">Play in your browser</a> ·
+  <a href="https://play.google.com/store/apps/details?id=com.regblanc.scalavator">Get it on Google Play</a> ·
+  <a href="https://github.com/regb/scala-game-library">Built with SGL</a>
+</p>
+
+<p align="center">
+  <img src="marketing/screenshots/screenshot1.png" width="22%" alt="Title screen">
+  <img src="marketing/screenshots/screenshot2.png" width="22%" alt="Charging a jump">
+  <img src="marketing/screenshots/screenshot3.png" width="22%" alt="Jumping at sunset">
+  <img src="marketing/screenshots/screenshot4.png" width="22%" alt="Game over">
+</p>
+
+## How to play
+
+<img src="marketing/charge.jpg" align="right" width="45%" alt="The hero charging a jump">
+
+Hold the mouse button, touch the screen, or hold the space bar to charge a
+jump, and release to jump. The longer you charge, the higher you go: the three
+dots above the hero show the charge level.
+
+The platforms keep moving, so time your jumps. Watch out for the bugs: one
+touch and you tumble down. The sky changes as you climb, from a sunny day to a
+sunset, then dusk, and finally the stars.
 
 Scalavator is inspired by the classic [Doodle
-Jump](https://wikipedia.org/wiki/Doodle_Jump), but its mecanisms have been
-adapted to be enjoyable to play in non-mobile platforms such as the web or the
-desktop. It kept the simplicity of the controls in order to be fully playable
-on mobile as well.
+Jump](https://wikipedia.org/wiki/Doodle_Jump), but its mechanics are adapted to
+be enjoyable on non-mobile platforms such as the web or the desktop, while
+keeping controls simple enough to be fully playable on mobile.
 
-Scalavator was started as a way to demonstrate how to use [the Scala Game
-Library (SGL)](https://github.com/regb/scala-game-library), a cross-platform
-game engine for the Scala programming language. It is fully open source and its
-code is under the MIT license. The goal was to show a small, but complete game
-implemented with SGL and taking advantage of the cross-platform features of the
-library.
+<br clear="right">
 
-The current implementation supports three platforms: Android, HTML5, and
-Desktop JVM. The core game logic is under the [core](/core) directory tree. The
-platform-specific implementations consist of very simple sub-projects (under
-[android](/android), [html5](/html5), and [desktop](/desktop), respectively),
-with only a single file to define the correct dependencies. For example, here
-is the only required [Android
-code](/android/src/main/scala/MainActivity.scala), just a couple lines of code.
+## Why Scalavator?
 
-Scalavator is available to [try
-online](http://regblanc.com/games/scalavator/play.html) from your browser, or
-to download for your Android device on [Google
-Play](https://play.google.com/store/apps/details?id=com.regblanc.scalavator).
-I invite you to try both and spot the differences.
+Scalavator was started to demonstrate [the Scala Game Library
+(SGL)](https://github.com/regb/scala-game-library), a cross-platform game
+engine for the Scala programming language. It is a small but complete game,
+and a good starting point for your own: the whole game is a few hundred lines
+of Scala, shared by every platform.
 
-You can also build and run Scalavator yourself, just run the following command:
-    
-    sbt desktop/run
+| Platform | Command |
+| --- | --- |
+| Desktop (JVM) | `bazel run //:desktop-awt` |
+| Web (HTML5, Scala.js) | `bazel run //:html5`, then open `http://localhost:8080` |
+| Android | `bazel run //:android-run` |
 
-It should start the Desktop JVM version of Scalavator. You can also build
-an Android APK (after installing the Android dependencies) with `sbt
-android/android:packageDebug` and a javascript build (after installing
-scala.js dependencies) with `sbt html5/fastOptJS`.
+Android needs a connected device or emulator, and `ANDROID_HOME` pointing to
+the Android SDK. Use `bazel build //...` to compile every target.
 
-Not that anyone would ever need them, but just in case, all the art assets that
-I provided for the game are released in the public domain. Some assets on this
-repository might come from a third-party source and are thus only reusable from
-their oiginal source (usually, under a creative common license).
+## Project layout
 
-The game is not quite finished yet. The goal is to evolve along with the
-development of SGL. The game will be ported to as many platforms as possible,
-most notably to iOS, and as an executable for Windows, OSx, and Linux. I also
-plan to add support for Leaderboards, achievements, and analytics, and show how
-these can be integrated over all these platforms in a shared Scala code base.
-Graphics are what they are --- programmer art.. I don't plan to spend much
-more time on them, but if you are of the artistic kind, I will appreciate
-any contribution.
+- [core](/core/src/main/scala): the game, shared by every platform. It uses
+  SGL's Screen2D engine: a loading screen, then the main screen.
+- [assets/drawable-xxhdpi](/assets/drawable-xxhdpi): the sprites, drawn at
+  3x. The build scales them down for lower screen densities.
+- [BUILD](/BUILD): Bazel targets. SGL's rules generate the platform entry
+  points and the Android Gradle project.
+- [desktop](/desktop): the desktop window title.
+- [marketing](/marketing): store graphics and screenshots.
 
-If you are interested in trying out SGL, this repository is a good starting
-point with a working project. You can then modify the core game logic to go
-into any direction you wish. If you do build a game with SGL, please reach out
-to [the SGL project](https://github.com/regb/scala-game-library), or get in
-touch directly with [me](http://regblanc.com/contact/).
+## Building against SGL
+
+Scalavator is a standalone Bazel module. SGL is not on the Bazel Central
+Registry yet, so [MODULE.bazel](/MODULE.bazel) pins an SGL commit with
+`git_override`. To build against a local SGL checkout instead, create a
+`.bazelrc.user` (ignored by git) with:
+
+```
+common --override_module=sgl.bzl=/path/to/scala-game-library
+```
+
+If you build a game with SGL, please reach out to [the SGL
+project](https://github.com/regb/scala-game-library), or get in touch directly
+with [me](http://regblanc.com/contact/).
+
+## Roadmap
+
+The game evolves along with SGL. The plan is to port it to as many platforms as
+possible, most notably iOS and native executables for Windows, macOS, and
+Linux, and to show how leaderboards, achievements, and analytics integrate
+across all of them from a single Scala code base.
+
+## License and art
+
+The code is under the MIT license.
+
+The current cartoon art, the store graphics, and the banner were generated with
+the image tool of the Codex CLI, based on the original character. The original
+programmer art is still under [art](/art). Not that anyone would ever need
+them, but all the art assets that I provided for the game are released in the
+public domain. Some assets in this repository might come from a third-party
+source and are thus only reusable under their original terms (usually a
+Creative Commons license). If you are of the artistic kind, contributions are
+very welcome.
 
 ## Credits
 
