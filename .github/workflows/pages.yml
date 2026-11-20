@@ -34,9 +34,8 @@ jobs:
 
       - name: Build the website
         run: |
-          bazel build //:html5-site
-          mkdir _site
-          tar -xf bazel-bin/html5-site.tar -C _site
+          bazel build //:html5_site
+          cp -rL bazel-bin/html5_site _site
 
       - name: Upload the website
         uses: actions/upload-pages-artifact@v4

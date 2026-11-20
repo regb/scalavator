@@ -11,13 +11,15 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="favicon.png">
   <style>
-    /* SGL's fixed window theme centers the canvas in the body and sets the
-       body color inline, so the page color needs !important. */
-    html, body { height: 100%; }
+    html, body { height: 100%; margin: 0; }
     body {
-      background: linear-gradient(#3f7fe0, #9fd8ff) fixed !important;
+      background: linear-gradient(#3f7fe0, #9fd8ff) fixed;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
     }
     #game {
       border-radius: 16px;
@@ -25,10 +27,6 @@
       touch-action: none;
     }
     footer {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 12px;
       text-align: center;
       font-size: 15px;
       color: #fff;
@@ -37,18 +35,20 @@
     footer a { color: #fff; font-weight: 600; }
     /* On small screens the game takes the whole space. */
     @media (max-width: 440px), (max-height: 740px) {
+      body { justify-content: flex-start; overflow: hidden; }
       #game { border-radius: 0; box-shadow: none; }
       footer { display: none; }
     }
   </style>
 </head>
 <body>
+  <!-- SGL sizes the canvas (400x650); the page places it. -->
   <canvas id="game"></canvas>
   <footer>Hold to charge, release to jump. <a href="https://github.com/regb/scalavator">Source on GitHub</a></footer>
 
   <script type="module">
-    import { Scalavator } from "./index.js";
-    Scalavator.run(document.getElementById("game"));
+    import { {{MAIN_CLASS}} } from "./{{JS_PATH}}";
+    {{MAIN_CLASS}}.run(document.getElementById("game"));
   </script>
 </body>
 </html>
