@@ -14,7 +14,7 @@ bazel_dep(
 #   common --override_module=sgl.bzl=/path/to/scala-game-library
 git_override(
     module_name = "sgl.bzl",
-    commit = "f486fb18b84bd55f80ca5dd6ce308ef0c8deb408",
+    commit = "ded149fddf8c34e8dbcff56fd1b4f938531f423e",
     remote = "https://github.com/regb/scala-game-library.git",
 )
 
